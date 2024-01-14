@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -32,6 +33,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,16 +50,23 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.aeladrin.currencyexchanger.model.Currency
-import com.aeladrin.currencyexchanger.utils.MoneyFormat
-import com.aeladrin.currencyexchanger.ui.utils.MoneyVisualTransformation
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aeladrin.currencyexchanger.R
 import com.aeladrin.currencyexchanger.ui.theme.AppColor
 import com.aeladrin.currencyexchanger.ui.theme.CurrencyExchangerTheme
+import com.aeladrin.currencyexchanger.ui.utils.MoneyVisualTransformation
+import com.aeladrin.currencyexchanger.utils.MoneyFormat
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
-fun CurrencyExchangerPage() {
+fun CurrencyExchangerPage(
+    viewModel: CurrencyExchangerViewModel = viewModel(),
+) {
+    LaunchedEffect(Unit) {
+        viewModel.loadData()
+    }
+    val viewState by viewModel.viewState.collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -79,22 +88,30 @@ fun CurrencyExchangerPage() {
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(16.dp),
             )
-            BalancesRow()
+            BalancesRow(viewState.balances)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = stringResource(R.string.currency_exchange),
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(16.dp),
             )
-            SellRow()
+            SellRow(
+                currencies = viewState.sellCurrencies,
+                onAmountChange = viewModel::onSellAmountChange,
+                onCurrencyChange = viewModel::onSellCurrencyChange,
+            )
             Divider(
                 color = Color.LightGray,
                 modifier = Modifier.padding(horizontal = 32.dp, vertical = 8.dp),
             )
-            ReceiveRow()
+            ReceiveRow(
+                amount = viewState.receiveAmount,
+                currencies = viewState.receiveCurrencies,
+                onCurrencyChange = viewModel::onReceiveCurrencyChange,
+            )
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = { /*TODO*/ },
+                onClick = viewModel::onSubmitClick,
                 modifier = Modifier
                     .padding(start = 32.dp, end = 32.dp, bottom = 16.dp)
                     .fillMaxWidth(),
@@ -106,13 +123,7 @@ fun CurrencyExchangerPage() {
 }
 
 @Composable
-private fun BalancesRow() {
-    val balances = mapOf(
-        Currency.EUR to 1000.0,
-        Currency.USD to 0.0,
-        Currency.BGN to 0.0,
-        Currency.UAH to 0.0,
-    )
+private fun BalancesRow(balances: Map<String, Double>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,7 +142,11 @@ private fun BalancesRow() {
 }
 
 @Composable
-private fun SellRow() {
+private fun SellRow(
+    currencies: List<String>,
+    onCurrencyChange: (String) -> Unit,
+    onAmountChange: (Double) -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -146,14 +161,17 @@ private fun SellRow() {
         Text(text = stringResource(id = R.string.sell))
         Spacer(modifier = Modifier.weight(1f))
 
+        // compose docs suggest to use remembered string for TextField
+        // instead of state flow to avoid synchronization bugs
         var sellValue by rememberSaveable { mutableStateOf("") }
         val focusManager = LocalFocusManager.current
-        // using basic text field to not handle colors and width
+        // using basic text field to better handle width and skip decorations
         BasicTextField(
             value = sellValue,
             onValueChange = {
-                // skip leading zeros input
+                // skip leading zeros input, required for MoneyVisualTransformation
                 sellValue = if (it.startsWith("0")) "" else it
+                onAmountChange(sellValue.toDoubleOrNull() ?: 0.0)
             },
             visualTransformation = MoneyVisualTransformation(),
             keyboardOptions = KeyboardOptions(
@@ -163,21 +181,27 @@ private fun SellRow() {
             // Done button isn't removing cursor, do it manually
             keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             textStyle = MaterialTheme.typography.bodyLarge,
+            singleLine = true,
             // by default text field is taking a lot of space
-            modifier = Modifier.width(IntrinsicSize.Min),
+            modifier = Modifier
+                .width(IntrinsicSize.Min)
+                .widthIn(max = 150.dp),
         )
 
-        var selectedCurrency by remember { mutableStateOf(Currency.entries[0]) }
         CurrencyDropdown(
-            value = selectedCurrency,
-            onValueChange = { selectedCurrency = it },
+            values = currencies,
+            onValueChange = onCurrencyChange,
         )
     }
 }
 
 // could reuse SellRow, but we don't need TextField here, let's KISS
 @Composable
-private fun ReceiveRow() {
+private fun ReceiveRow(
+    amount: Double,
+    currencies: List<String>,
+    onCurrencyChange: (String) -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -191,16 +215,13 @@ private fun ReceiveRow() {
         )
         Text(text = stringResource(id = R.string.receive))
         Spacer(modifier = Modifier.weight(1f))
-
         Text(
-            text = "+110.30",
+            text = amount.toString(),
             style = MaterialTheme.typography.bodyLarge.copy(color = AppColor.Green),
         )
-
-        var selectedCurrency by remember { mutableStateOf(Currency.entries[1]) }
         CurrencyDropdown(
-            value = selectedCurrency,
-            onValueChange = { selectedCurrency = it },
+            values = currencies,
+            onValueChange = onCurrencyChange,
         )
     }
 }
@@ -208,9 +229,12 @@ private fun ReceiveRow() {
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun CurrencyDropdown(
-    value: Currency,
-    onValueChange: (Currency) -> Unit,
+    values: List<String>,
+    onValueChange: (String) -> Unit,
 ) {
+    // I'm not repeating selected item in dropdown
+    val selected = values.firstOrNull()
+    val otherValues = values.drop(1)
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -220,7 +244,7 @@ private fun CurrencyDropdown(
     ) {
         // hope they'll change this API, but for now we have to use read-only TextField here
         TextField(
-            value = value.name,
+            value = selected ?: "",
             onValueChange = {},
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
@@ -240,13 +264,13 @@ private fun CurrencyDropdown(
                 // have to use a constraint, because ExpandedDropdownMenu is taking too much space
                 .exposedDropdownSize()
         ) {
-            Currency.entries.forEach { currency ->
+            otherValues.forEach { currency ->
                 DropdownMenuItem(
-                    text = { Text(text = currency.name) },
+                    text = { Text(text = currency) },
                     onClick = {
                         onValueChange(currency)
                         expanded = false
-                    }
+                    },
                 )
             }
         }
