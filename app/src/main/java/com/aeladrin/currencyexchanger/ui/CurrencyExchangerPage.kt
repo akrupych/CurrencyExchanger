@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Divider
@@ -28,6 +29,7 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBarDefaults
@@ -54,9 +56,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aeladrin.currencyexchanger.R
 import com.aeladrin.currencyexchanger.ui.theme.AppColor
 import com.aeladrin.currencyexchanger.ui.theme.CurrencyExchangerTheme
-import java.text.DecimalFormat
-
-val MoneyFormat = DecimalFormat("0.00")
+import com.aeladrin.currencyexchanger.utils.MoneyFormat
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -127,6 +127,18 @@ fun CurrencyExchangerPage(
             ) {
                 Text(text = stringResource(id = R.string.submit))
             }
+        }
+        viewState.dialogMessage?.let { message ->
+            AlertDialog(
+                title = { Text(text = stringResource(id = R.string.currency_converted)) },
+                text = { Text(text = message) },
+                confirmButton = {
+                    TextButton(onClick = viewModel::dismissDialog) {
+                        Text(text = stringResource(id = R.string.done))
+                    }
+                },
+                onDismissRequest = viewModel::dismissDialog,
+            )
         }
     }
 }
@@ -234,7 +246,7 @@ private fun ReceiveRow(
         Text(text = stringResource(id = R.string.receive))
         Spacer(modifier = Modifier.weight(1f))
         Text(
-            text = MoneyFormat.format(amount),
+            text = "+${MoneyFormat.format(amount)}",
             style = MaterialTheme.typography.bodyLarge.copy(color = AppColor.Green),
             maxLines = 1,
             modifier = Modifier

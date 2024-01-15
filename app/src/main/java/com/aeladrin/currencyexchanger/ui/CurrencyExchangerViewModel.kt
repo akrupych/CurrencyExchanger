@@ -2,8 +2,10 @@ package com.aeladrin.currencyexchanger.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.aeladrin.currencyexchanger.ci.CommissionProvider
 import com.aeladrin.currencyexchanger.model.CurrencyExchangeRepository
 import com.aeladrin.currencyexchanger.model.RatesResponse
+import com.aeladrin.currencyexchanger.utils.MoneyFormat
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +19,7 @@ import javax.inject.Inject
 @HiltViewModel
 class CurrencyExchangerViewModel @Inject constructor(
     private val repository: CurrencyExchangeRepository,
+    private val commissionProvider: CommissionProvider,
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(CurrencyExchangerViewState())
@@ -134,20 +137,28 @@ class CurrencyExchangerViewModel @Inject constructor(
     }
 
     fun onSubmitClick() {
-        val state = _viewState.value
-        val newSellBalance = state.balances.getOrDefault(state.sellCurrency, 0.0) -
-                state.sellAmount
-        val newReceiveBalance = state.balances.getOrDefault(state.receiveCurrency, 0.0) +
-                state.receiveAmount
-        if (newSellBalance < 0) {
-            _viewState.update { it.copy(error = "Conversion failed, please check your balances") }
-        } else {
-            val newBalances = state.balances.toMutableMap().apply {
-                put(state.sellCurrency, newSellBalance)
-                put(state.receiveCurrency, newReceiveBalance)
-            }
-            viewModelScope.launch {
-                repository.setBalances(newBalances)
+        viewModelScope.launch {
+            val state = _viewState.value
+            val commission = commissionProvider.getCommission(
+                from = state.sellCurrency to state.sellAmount,
+                to = state.receiveCurrency to state.receiveAmount,
+            )
+            val newSellBalance = state.balances.getOrDefault(state.sellCurrency, 0.0) -
+                    state.sellAmount - commission.first
+            val newReceiveBalance = state.balances.getOrDefault(state.receiveCurrency, 0.0) +
+                    state.receiveAmount
+            if (newSellBalance < 0) {
+                _viewState.update { it.copy(error = "Conversion failed, please check your balances") }
+            } else {
+                val newBalances = state.balances.toMutableMap().apply {
+                    put(state.sellCurrency, newSellBalance)
+                    put(state.receiveCurrency, newReceiveBalance)
+                }
+                repository.transactionMade(newBalances)
+                val dialogMessage = "You have converted ${MoneyFormat.format(state.sellAmount)} " +
+                        "${state.sellCurrency} to ${MoneyFormat.format(state.receiveAmount)} " +
+                        "${state.receiveCurrency}. ${commission.second}"
+                _viewState.update { it.copy(dialogMessage = dialogMessage) }
             }
         }
     }
@@ -162,6 +173,10 @@ class CurrencyExchangerViewModel @Inject constructor(
         val toRate = exchangeRates[toCurrency] ?: return 0.0
         return amount * toRate / fromRate
     }
+
+    fun dismissDialog() {
+        _viewState.update { it.copy(dialogMessage = null) }
+    }
 }
 
 data class CurrencyExchangerViewState(
@@ -173,4 +188,5 @@ data class CurrencyExchangerViewState(
     val receiveCurrency: String = "",
     val receiveCurrencyOptions: List<String> = emptyList(),
     val error: String? = null,
+    val dialogMessage: String? = null,
 )

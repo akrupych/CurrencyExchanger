@@ -1,22 +1,17 @@
 package com.aeladrin.currencyexchanger.model
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.aeladrin.currencyexchanger.ci.CurrenciesProvider
 import com.aeladrin.currencyexchanger.ci.InitialBalancesProvider
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 class CurrencyExchangeRepository @Inject constructor(
     private val api: CurrencyExchangerApi,
-    private val dataStore: DataStore<Preferences>,
+    private val storage: CurrencyExchangeStorage,
     private val initialBalancesProvider: InitialBalancesProvider,
     private val currenciesProvider: CurrenciesProvider,
 ) {
@@ -36,21 +31,20 @@ class CurrencyExchangeRepository @Inject constructor(
         }
     }
 
-    val balances: Flow<Map<String, Double>> = dataStore.data.map { prefs ->
-        val type = object: TypeToken<Map<String, Double>>(){}.type
-        prefs[stringPreferencesKey("balances")]?.let { Gson().fromJson(it, type) }
-            ?: initialBalancesProvider.getInitialBalances().apply { setBalances(this) }
-    }
-
-    suspend fun setBalances(balances: Map<String, Double>) {
-        dataStore.edit { prefs ->
-            prefs[stringPreferencesKey("balances")] = Gson().toJson(balances)
-        }
+    val balances: Flow<Map<String, Double>> = storage.balances.map {
+        it ?: initialBalancesProvider.getInitialBalances().apply { storage.setBalances(this) }
     }
 
     // we could add new currencies here dynamically
     val currencies: Flow<List<String>> = flow {
         emit(currenciesProvider.getCurrencies())
+    }
+
+    val transactions: Flow<Int> = storage.transactions
+
+    suspend fun transactionMade(newBalances: Map<String, Double>) {
+        storage.setBalances(newBalances)
+        storage.setTransactions(storage.transactions.first() + 1)
     }
 }
 

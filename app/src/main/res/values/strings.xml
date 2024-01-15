@@ -5,4 +5,6 @@
     <string name="sell">Sell</string>
     <string name="receive">Receive</string>
     <string name="submit">SUBMIT</string>
+    <string name="currency_converted">Currency converted</string>
+    <string name="done">Done</string>
 </resources>

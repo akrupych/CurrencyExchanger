@@ -5,7 +5,12 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import com.aeladrin.currencyexchanger.BuildConfig
+import com.aeladrin.currencyexchanger.model.CurrencyExchangeRepository
+import com.aeladrin.currencyexchanger.model.CurrencyExchangeStorage
 import com.aeladrin.currencyexchanger.model.CurrencyExchangerApi
+import com.aeladrin.currencyexchanger.model.providers.DefaultCommissionProvider
+import com.aeladrin.currencyexchanger.model.providers.DefaultCurrenciesProvider
+import com.aeladrin.currencyexchanger.model.providers.DefaultInitialBalancesProvider
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,23 +26,17 @@ import java.util.concurrent.TimeUnit
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    @Provides
-    fun provideCurrencies(): CurrenciesProvider {
-        return object : CurrenciesProvider {
-            override fun getCurrencies(): List<String> {
-                return listOf("EUR", "USD", "BGN", "UAH")
-            }
-        }
-    }
+    private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "storage")
 
     @Provides
-    fun provideInitialBalances(): InitialBalancesProvider {
-        return object : InitialBalancesProvider {
-            override fun getInitialBalances(): Map<String, Double> {
-                return mapOf("EUR" to 1000.0)
-            }
-        }
-    }
+    fun provideCurrencies(): CurrenciesProvider = DefaultCurrenciesProvider()
+
+    @Provides
+    fun provideInitialBalances(): InitialBalancesProvider = DefaultInitialBalancesProvider()
+
+    @Provides
+    fun provideCommissionProvider(repository: CurrencyExchangeRepository): CommissionProvider =
+        DefaultCommissionProvider(repository)
 
     @Provides
     fun provideCurrencyExchangerApi(): CurrencyExchangerApi {
@@ -61,20 +60,7 @@ object AppModule {
     }
 
     @Provides
-    fun provideDataStore(@ApplicationContext appContext: Context): DataStore<Preferences> {
-        return appContext.dataStore
-    }
+    fun provideCurrencyExchangeStorage(
+        @ApplicationContext appContext: Context
+    ): CurrencyExchangeStorage = CurrencyExchangeStorage(appContext.dataStore)
 }
-
-interface CurrenciesProvider {
-    fun getCurrencies(): List<String>
-}
-
-interface InitialBalancesProvider {
-    /**
-     * @return currencies mapped to initial amounts
-     */
-    fun getInitialBalances(): Map<String, Double>
-}
-
-private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "storage")
