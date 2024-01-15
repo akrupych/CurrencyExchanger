@@ -111,8 +111,19 @@ fun CurrencyExchangerPage(
                 onCurrencyChange = viewModel::onReceiveCurrencyChange,
             )
             Spacer(modifier = Modifier.weight(1f))
+            viewState.error?.let {
+                Text(
+                    text = it,
+                    color = AppColor.Red,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 32.dp, vertical = 16.dp),
+                )
+            }
             Button(
                 onClick = viewModel::onSubmitClick,
+                enabled = viewState.error == null,
                 modifier = Modifier
                     .padding(start = 32.dp, end = 32.dp, bottom = 16.dp)
                     .fillMaxWidth(),

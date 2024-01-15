@@ -1,16 +1,21 @@
 package com.aeladrin.currencyexchanger.ci
 
+import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.preferencesDataStore
+import com.aeladrin.currencyexchanger.BuildConfig
 import com.aeladrin.currencyexchanger.model.CurrencyExchangerApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
-import com.aeladrin.currencyexchanger.BuildConfig
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -54,6 +59,11 @@ object AppModule {
             .build()
             .create(CurrencyExchangerApi::class.java)
     }
+
+    @Provides
+    fun provideDataStore(@ApplicationContext appContext: Context): DataStore<Preferences> {
+        return appContext.dataStore
+    }
 }
 
 interface CurrenciesProvider {
@@ -66,3 +76,5 @@ interface InitialBalancesProvider {
      */
     fun getInitialBalances(): Map<String, Double>
 }
+
+private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "storage")
