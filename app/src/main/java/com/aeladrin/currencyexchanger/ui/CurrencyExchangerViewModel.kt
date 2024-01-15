@@ -7,11 +7,13 @@ import com.aeladrin.currencyexchanger.model.CurrencyExchangeRepository
 import com.aeladrin.currencyexchanger.model.RatesResponse
 import com.aeladrin.currencyexchanger.utils.MoneyFormat
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,6 +22,7 @@ import javax.inject.Inject
 class CurrencyExchangerViewModel @Inject constructor(
     private val repository: CurrencyExchangeRepository,
     private val commissionProvider: CommissionProvider,
+    private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _viewState = MutableStateFlow(CurrencyExchangerViewState())
@@ -37,6 +40,7 @@ class CurrencyExchangerViewModel @Inject constructor(
                 .combine(repository.currencies) { (rates, balances), currencies ->
                     Triple(rates, balances, currencies)
                 }
+                .flowOn(ioDispatcher)
                 .catch { exception -> _viewState.update { it.copy(error = exception.message) } }
                 .collect { (rates, balances, currencies) ->
                     if (rates is RatesResponse.Success) exchangeRates = rates.rates

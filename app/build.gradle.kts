@@ -86,8 +86,9 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp")
     implementation("com.squareup.okhttp3:logging-interceptor")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
-    testImplementation("io.mockk:mockk:1.13.5")
-    androidTestImplementation("io.mockk:mockk-android:1.13.3")
+    testImplementation("io.mockk:mockk:1.13.9")
+    androidTestImplementation("io.mockk:mockk-android:1.13.9")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }
 
 kapt {
