@@ -7,6 +7,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+import retrofit2.HttpException
+import java.net.UnknownHostException
 import javax.inject.Inject
 
 class CurrencyExchangeRepository @Inject constructor(
@@ -25,7 +27,14 @@ class CurrencyExchangeRepository @Inject constructor(
                     emit(RatesResponse.Success(rates.rates))
                 }
             } catch (e: Exception) {
-                emit(RatesResponse.Error("Exchange rates are unavailable at the moment"))
+                e.printStackTrace()
+                when (e) {
+                    is HttpException,
+                    is UnknownHostException ->
+                        emit(RatesResponse.Error("Exchange rates are unavailable at the moment"))
+                    // unit tests throw their own exceptions, let them be
+                    else -> throw e
+                }
             }
             delay(5000)
         }
