@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -59,11 +60,30 @@ import com.aeladrin.currencyexchanger.ui.theme.CurrencyExchangerTheme
 import com.aeladrin.currencyexchanger.utils.MoneyFormat
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun CurrencyExchangerPage(
     viewModel: CurrencyExchangerViewModel = viewModel(),
 ) {
     val viewState by viewModel.viewState.collectAsStateWithLifecycle()
+    CurrencyExchangerPageContent(
+        viewState = viewState,
+        onSellAmountChange = viewModel::onSellAmountChange,
+        onSellCurrencyChange = viewModel::onSellCurrencyChange,
+        onReceiveCurrencyChange = viewModel::onReceiveCurrencyChange,
+        onSubmitClick = viewModel::onSubmitClick,
+        onDismissDialog = viewModel::onDismissDialog,
+    )
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+fun CurrencyExchangerPageContent(
+    viewState: CurrencyExchangerViewState,
+    onSellAmountChange: (Double) -> Unit,
+    onSellCurrencyChange: (String) -> Unit,
+    onReceiveCurrencyChange: (String) -> Unit,
+    onSubmitClick: () -> Unit,
+    onDismissDialog: () -> Unit,
+) {
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
@@ -95,8 +115,8 @@ fun CurrencyExchangerPage(
             SellRow(
                 currency = viewState.sellCurrency,
                 currencyOptions = viewState.sellCurrencyOptions,
-                onAmountChange = viewModel::onSellAmountChange,
-                onCurrencyChange = viewModel::onSellCurrencyChange,
+                onAmountChange = onSellAmountChange,
+                onCurrencyChange = onSellCurrencyChange,
             )
             Divider(
                 color = Color.LightGray,
@@ -106,7 +126,7 @@ fun CurrencyExchangerPage(
                 amount = viewState.receiveAmount,
                 currency = viewState.receiveCurrency,
                 currencyOptions = viewState.receiveCurrencyOptions,
-                onCurrencyChange = viewModel::onReceiveCurrencyChange,
+                onCurrencyChange = onReceiveCurrencyChange,
             )
             Spacer(modifier = Modifier.weight(1f))
             viewState.error?.let {
@@ -120,7 +140,7 @@ fun CurrencyExchangerPage(
                 )
             }
             Button(
-                onClick = viewModel::onSubmitClick,
+                onClick = onSubmitClick,
                 modifier = Modifier
                     .padding(start = 32.dp, end = 32.dp, bottom = 16.dp)
                     .fillMaxWidth(),
@@ -133,11 +153,11 @@ fun CurrencyExchangerPage(
                 title = { Text(text = stringResource(id = R.string.currency_converted)) },
                 text = { Text(text = message) },
                 confirmButton = {
-                    TextButton(onClick = viewModel::dismissDialog) {
+                    TextButton(onClick = onDismissDialog) {
                         Text(text = stringResource(id = R.string.done))
                     }
                 },
-                onDismissRequest = viewModel::dismissDialog,
+                onDismissRequest = onDismissDialog,
             )
         }
     }
@@ -202,7 +222,9 @@ private fun SellRow(
             keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.End),
             singleLine = true,
-            modifier = Modifier.width(150.dp),
+            modifier = Modifier
+                .width(150.dp)
+                .testTag("SellAmount"),
             decorationBox = { innerTextField ->
                 if (sellValue.isEmpty()) {
                     // show placeholder
@@ -312,8 +334,20 @@ private fun CurrencyDropdown(
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+fun DefaultPreview() {
     CurrencyExchangerTheme {
-        CurrencyExchangerPage()
+        CurrencyExchangerPageContent(
+            viewState = CurrencyExchangerViewState(
+                balances = mapOf("USD" to 100.0, "EUR" to 90.0, "GBP" to 80.0),
+                sellCurrency = "USD",
+                receiveCurrency = "EUR",
+                error = "Network error",
+            ),
+            onSellAmountChange = {},
+            onSellCurrencyChange = {},
+            onReceiveCurrencyChange = {},
+            onSubmitClick = {},
+            onDismissDialog = {},
+        )
     }
 }

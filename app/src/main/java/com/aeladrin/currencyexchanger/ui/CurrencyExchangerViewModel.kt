@@ -174,7 +174,7 @@ class CurrencyExchangerViewModel @Inject constructor(
         return amount * toRate / fromRate
     }
 
-    fun dismissDialog() {
+    fun onDismissDialog() {
         _viewState.update { it.copy(dialogMessage = null) }
     }
 }
