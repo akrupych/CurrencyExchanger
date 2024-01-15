@@ -134,7 +134,22 @@ class CurrencyExchangerViewModel @Inject constructor(
     }
 
     fun onSubmitClick() {
-        // TODO: apply conversion
+        val state = _viewState.value
+        val newSellBalance = state.balances.getOrDefault(state.sellCurrency, 0.0) -
+                state.sellAmount
+        val newReceiveBalance = state.balances.getOrDefault(state.receiveCurrency, 0.0) +
+                state.receiveAmount
+        if (newSellBalance < 0) {
+            _viewState.update { it.copy(error = "Conversion failed, please check your balances") }
+        } else {
+            val newBalances = state.balances.toMutableMap().apply {
+                put(state.sellCurrency, newSellBalance)
+                put(state.receiveCurrency, newReceiveBalance)
+            }
+            viewModelScope.launch {
+                repository.setBalances(newBalances)
+            }
+        }
     }
 
     private fun convert(

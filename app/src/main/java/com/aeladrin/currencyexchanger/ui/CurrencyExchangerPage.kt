@@ -44,7 +44,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -55,10 +54,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.aeladrin.currencyexchanger.R
 import com.aeladrin.currencyexchanger.ui.theme.AppColor
 import com.aeladrin.currencyexchanger.ui.theme.CurrencyExchangerTheme
-import com.aeladrin.currencyexchanger.ui.utils.MoneyVisualTransformation
 import java.text.DecimalFormat
 
-val MoneyFormat = DecimalFormat("###,###,##0.00")
+val MoneyFormat = DecimalFormat("0.00")
 
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -123,7 +121,6 @@ fun CurrencyExchangerPage(
             }
             Button(
                 onClick = viewModel::onSubmitClick,
-                enabled = viewState.error == null,
                 modifier = Modifier
                     .padding(start = 32.dp, end = 32.dp, bottom = 16.dp)
                     .fillMaxWidth(),
@@ -177,18 +174,14 @@ private fun SellRow(
         // compose docs suggest to use remembered string for TextField
         // instead of state flow to avoid synchronization bugs
         var sellValue by rememberSaveable { mutableStateOf("") }
-        val transformation = remember { MoneyVisualTransformation() }
         val focusManager = LocalFocusManager.current
-        // using basic text field to better handle width and skip decorations
+        // default TextField has Material style, which we don't need here
         BasicTextField(
             value = sellValue,
             onValueChange = {
-                // skip leading zeros input, required for MoneyVisualTransformation
-                sellValue = if (it.startsWith("0")) "" else it
-                val transformed = transformation.filter(AnnotatedString(sellValue)).text.text
-                onAmountChange(transformed.replace(",", "").toDouble())
+                sellValue = it
+                onAmountChange(it.toDoubleOrNull() ?: 0.0)
             },
-            visualTransformation = transformation,
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Decimal,
                 imeAction = ImeAction.Done,
@@ -197,8 +190,18 @@ private fun SellRow(
             keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
             textStyle = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.End),
             singleLine = true,
-            // by default text field is taking a lot of space
             modifier = Modifier.width(150.dp),
+            decorationBox = { innerTextField ->
+                if (sellValue.isEmpty()) {
+                    // show placeholder
+                    Text(
+                        text = "0.00",
+                        style = MaterialTheme.typography.bodyLarge.copy(textAlign = TextAlign.End),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                innerTextField()
+            }
         )
 
         CurrencyDropdown(
